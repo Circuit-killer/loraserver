@@ -116,9 +116,9 @@ func migrateDeviceSessionOld(d DeviceSessionOld) DeviceSession {
 		RX2DR:        d.RX2DR,
 		RX2Frequency: d.RX2Frequency,
 
-		TXPowerIndex: d.TXPowerIndex,
-		DR:           d.DR,
-		ADR:          d.ADR,
+		TXPowerIndex:             d.TXPowerIndex,
+		DR:                       d.DR,
+		ADR:                      d.ADR,
 		MaxSupportedTXPowerIndex: d.MaxSupportedTXPowerIndex,
 		MaxSupportedDR:           d.MaxSupportedDR,
 		NbTrans:                  d.NbTrans,

@@ -192,9 +192,14 @@ func (ts *ClassBTestSuite) TestUplink() {
 			ds, err := storage.GetDeviceSession(ts.RedisPool(), test.DeviceSession.DevEUI)
 			assert.NoError(err)
 
+			d, err := storage.GetDevice(ts.DB(), test.DeviceSession.DevEUI)
+			assert.NoError(err)
+
 			assert.Equal(test.ExpectedBeaconLocked, ds.BeaconLocked)
 
 			if test.ExpectedBeaconLocked {
+				assert.Equal(storage.DeviceModeB, d.Mode)
+
 				queueItems, err := storage.GetDeviceQueueItemsForDevEUI(config.C.PostgreSQL.DB, test.DeviceSession.DevEUI)
 				assert.NoError(err)
 
@@ -202,6 +207,8 @@ func (ts *ClassBTestSuite) TestUplink() {
 					assert.NotNil(qi.EmitAtTimeSinceGPSEpoch)
 					assert.NotNil(qi.TimeoutAfter)
 				}
+			} else {
+				assert.Equal(storage.DeviceModeA, d.Mode)
 			}
 		})
 	}
@@ -209,6 +216,9 @@ func (ts *ClassBTestSuite) TestUplink() {
 
 func (ts *ClassBTestSuite) TestDownlink() {
 	assert := require.New(ts.T())
+
+	ts.Device.Mode = storage.DeviceModeB
+	assert.NoError(storage.UpdateDevice(ts.DB(), ts.Device))
 
 	ts.CreateDeviceSession(storage.DeviceSession{
 		DevAddr:     lorawan.DevAddr{1, 2, 3, 4},
@@ -310,21 +320,6 @@ func (ts *ClassBTestSuite) TestDownlink() {
 		},
 		{
 			BeforeFunc: func(tst *DownlinkTest) error {
-				tst.DeviceSession.BeaconLocked = false
-				return nil
-			},
-			Name:          "class-b downlink, but no beacon lock",
-			DeviceSession: *ts.DeviceSession,
-			DeviceQueueItems: []storage.DeviceQueueItem{
-				{DevEUI: ts.Device.DevEUI, FPort: 10, FCnt: 5, FRMPayload: []byte{1, 2, 3}, EmitAtTimeSinceGPSEpoch: &emitTime},
-			},
-			Assert: []Assertion{
-				AssertFCntUp(8),
-				AssertNFCntDown(5),
-			},
-		},
-		{
-			BeforeFunc: func(tst *DownlinkTest) error {
 				config.C.NetworkServer.NetworkSettings.ClassB.PingSlotFrequency = 0
 				tst.DeviceSession.PingSlotFrequency = 0
 				return nil
@@ -357,6 +352,22 @@ func (ts *ClassBTestSuite) TestDownlink() {
 						},
 					},
 				}),
+			},
+		},
+		{
+			BeforeFunc: func(tst *DownlinkTest) error {
+				tst.DeviceSession.BeaconLocked = false
+				ts.Device.Mode = storage.DeviceModeA
+				return storage.UpdateDevice(ts.DB(), ts.Device)
+			},
+			Name:          "class-b downlink, but no beacon lock",
+			DeviceSession: *ts.DeviceSession,
+			DeviceQueueItems: []storage.DeviceQueueItem{
+				{DevEUI: ts.Device.DevEUI, FPort: 10, FCnt: 5, FRMPayload: []byte{1, 2, 3}, EmitAtTimeSinceGPSEpoch: &emitTime},
+			},
+			Assert: []Assertion{
+				AssertFCntUp(8),
+				AssertNFCntDown(5),
 			},
 		},
 	}
